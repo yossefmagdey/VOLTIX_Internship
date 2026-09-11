@@ -16,8 +16,6 @@ fathom-landing/
 
 ## How to run it
 
-## How to run it
-
 No build tools or server required.
 
 1. Download / unzip the folder.

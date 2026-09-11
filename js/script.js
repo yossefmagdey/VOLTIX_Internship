@@ -130,3 +130,20 @@ document.addEventListener('DOMContentLoaded', () => {
   if (yearEl) yearEl.textContent = new Date().getFullYear();
 
 });
+// جلب المحتوى الديناميكي من قاعدة البيانات
+async function loadDynamicContent() {
+  try {
+    const res = await fetch('api/manage_content.php');
+    const data = await res.json();
+    
+    if (data.success && data.data.length > 0) {
+      console.log('Dynamic Content Loaded:', data.data);
+      // هنا تقدر تعرض المحتوى في المكان اللي تحبه
+    }
+  } catch (err) {
+    console.error('Error loading dynamic content:', err);
+  }
+}
+
+// تشغيل الدالة أول ما الصفحة تفتح
+document.addEventListener('DOMContentLoaded', loadDynamicContent);
