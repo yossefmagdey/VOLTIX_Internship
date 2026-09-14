@@ -14,10 +14,21 @@ document.addEventListener('DOMContentLoaded', () => {
   const itemsTableBody = document.getElementById('itemsTableBody');
   const alertBox = document.getElementById('alertBox');
 
-  // 1. READ: Fetch all items from API
+  // 1. READ: Fetch all items from API with Session Support
   async function loadItems() {
     try {
-      const response = await fetch(apiUrl);
+      const response = await fetch(apiUrl, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include' // Include session cookies
+      });
+
+      if (response.status === 401 || response.status === 403) {
+        showAlert('Unauthorized access. Redirecting to login...', 'error');
+        setTimeout(() => { window.location.href = 'login.html'; }, 2000);
+        return;
+      }
+
       const result = await response.json();
 
       if (result.success && Array.isArray(result.data)) {
@@ -41,13 +52,13 @@ document.addEventListener('DOMContentLoaded', () => {
     itemsTableBody.innerHTML = items.map(item => `
       <tr>
         <td>${item.id}</td>
-        <td>${escapeHtml(item.name)}</td>
-        <td>${escapeHtml(item.email)}</td>
+        <td>${escapeHtml(item.name || '')}</td>
+        <td>${escapeHtml(item.email || '')}</td>
         <td>${escapeHtml(item.subject || '-')}</td>
-        <td>${escapeHtml(item.message)}</td>
+        <td>${escapeHtml(item.message || '')}</td>
         <td>${item.created_at || '-'}</td>
         <td>
-          <button class="btn-edit" onclick="editItem(${item.id}, '${escapeQuote(item.name)}', '${escapeQuote(item.email)}', '${escapeQuote(item.subject || '')}', '${escapeQuote(item.message)}')">Edit</button>
+          <button class="btn-edit" onclick="editItem(${item.id}, '${escapeQuote(item.name || '')}', '${escapeQuote(item.email || '')}', '${escapeQuote(item.subject || '')}', '${escapeQuote(item.message || '')}')">Edit</button>
           <button class="btn-delete" onclick="deleteItem(${item.id})">Delete</button>
         </td>
       </tr>
@@ -73,6 +84,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const response = await fetch(apiUrl, {
         method: method,
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify(payload)
       });
 
@@ -106,7 +118,7 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   // Cancel Edit
-  cancelBtn.addEventListener('click', resetForm);
+  if (cancelBtn) cancelBtn.addEventListener('click', resetForm);
 
   function resetForm() {
     itemIdInput.value = '';
@@ -124,6 +136,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const response = await fetch(apiUrl, {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({ id: id })
       });
 
@@ -143,6 +156,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Helper: Show Alerts
   function showAlert(message, type) {
+    if (!alertBox) return;
     alertBox.textContent = message;
     alertBox.className = `alert alert-${type === 'success' ? 'success' : 'error'}`;
     alertBox.style.display = 'block';
@@ -153,13 +167,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Helpers: Sanitize Strings for HTML/Attributes
   function escapeHtml(str) {
-    return str.replace(/[&<>"']/g, match => ({
+    return String(str).replace(/[&<>"']/g, match => ({
       '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
     }[match]));
   }
 
   function escapeQuote(str) {
-    return str.replace(/'/g, "\\'").replace(/"/g, '&quot;').replace(/\n/g, ' ');
+    return String(str).replace(/'/g, "\\'").replace(/"/g, '&quot;').replace(/\n/g, ' ');
   }
 
   // Initial Load

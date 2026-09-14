@@ -1,10 +1,13 @@
 <?php
+$allowed_origin = "http://localhost";
+if (isset($_SERVER['HTTP_ORIGIN']) && $_SERVER['HTTP_ORIGIN'] === $allowed_origin) {
+    header("Access-Control-Allow-Origin: $allowed_origin");
+}
+header("Access-Control-Allow-Credentials: true");
 header("Content-Type: application/json; charset=UTF-8");
-header("Access-Control-Allow-Origin: *");
 header("Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS");
 header("Access-Control-Allow-Headers: Content-Type, Access-Control-Allow-Headers, Authorization, X-Requested-With");
 
-// التعامل مع طلبات OPTIONS الخاصة بـ CORS
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     http_response_code(200);
     exit();
@@ -12,11 +15,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 
 require_once 'db.php';
 
+// Check if user is admin
+checkAuth('admin');
+
 $method = $_SERVER['REQUEST_METHOD'];
 
 switch ($method) {
-
-    // 1. READ: جلب جميع العناصر
     case 'GET':
         try {
             $stmt = $conn->query("SELECT * FROM inquiries ORDER BY created_at DESC");
@@ -24,11 +28,10 @@ switch ($method) {
             echo json_encode(["success" => true, "data" => $inquiries]);
         } catch (PDOException $e) {
             http_response_code(500);
-            echo json_encode(["success" => false, "message" => "Database error: " . $e->getMessage()]);
+            echo json_encode(["success" => false, "message" => "Database error."]);
         }
         break;
 
-    // 2. CREATE: إضافة عنصر جديد
     case 'POST':
         $data = json_decode(file_get_contents("php://input"), true);
         if (!empty($data['name']) && !empty($data['email']) && !empty($data['message'])) {
@@ -51,7 +54,6 @@ switch ($method) {
         }
         break;
 
-    // 3. UPDATE: تعديل عنصر موجود
     case 'PUT':
         $data = json_decode(file_get_contents("php://input"), true);
         if (!empty($data['id']) && !empty($data['name']) && !empty($data['email']) && !empty($data['message'])) {
@@ -75,7 +77,6 @@ switch ($method) {
         }
         break;
 
-    // 4. DELETE: حذف عنصر
     case 'DELETE':
         $data = json_decode(file_get_contents("php://input"), true);
         $id = $data['id'] ?? ($_GET['id'] ?? null);
@@ -96,7 +97,7 @@ switch ($method) {
         break;
 
     default:
-        http_response_code(45);
+        http_response_code(405);
         echo json_encode(["success" => false, "message" => "Method not allowed"]);
         break;
 }

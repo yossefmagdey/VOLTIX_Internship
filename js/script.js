@@ -1,12 +1,3 @@
-// =========================================================
-// FATHOM — Company Landing Page
-// 1. Mobile nav toggle
-// 2. Scroll reveal (IntersectionObserver)
-// 3. Pricing: monthly / annual toggle
-// 4. Contact / Inquiry Form (Connected to PHP API)
-// 5. Dynamic footer year
-// =========================================================
-
 document.addEventListener('DOMContentLoaded', () => {
 
   /* ---------- 1. Mobile nav toggle ---------- */
@@ -90,12 +81,12 @@ document.addEventListener('DOMContentLoaded', () => {
       };
 
       try {
-        // استخدام المسار النسبي المرن
         const response = await fetch('api/contact.php', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'
           },
+          credentials: 'include',
           body: JSON.stringify(formData)
         });
 
@@ -129,21 +120,21 @@ document.addEventListener('DOMContentLoaded', () => {
   const yearEl = document.getElementById('year');
   if (yearEl) yearEl.textContent = new Date().getFullYear();
 
+  /* ---------- 6. Dynamic content loader ---------- */
+  loadDynamicContent();
 });
-// جلب المحتوى الديناميكي من قاعدة البيانات
+
 async function loadDynamicContent() {
   try {
-    const res = await fetch('api/manage_content.php');
+    const res = await fetch('api/manage_content.php', {
+      credentials: 'include'
+    });
     const data = await res.json();
     
-    if (data.success && data.data.length > 0) {
+    if (data.success && data.data && data.data.length > 0) {
       console.log('Dynamic Content Loaded:', data.data);
-      // هنا تقدر تعرض المحتوى في المكان اللي تحبه
     }
   } catch (err) {
     console.error('Error loading dynamic content:', err);
   }
 }
-
-// تشغيل الدالة أول ما الصفحة تفتح
-document.addEventListener('DOMContentLoaded', loadDynamicContent);
