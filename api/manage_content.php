@@ -1,48 +1,94 @@
 <?php
-header("Content-Type: application/json; charset=UTF-8");
 require_once 'db.php';
 
-// Restrict access to admin users only
+// التأكد من الصلاحيات (أدمن فقط)
 checkAuth('admin');
 
 $method = $_SERVER['REQUEST_METHOD'];
+$contentType = isset($_SERVER["CONTENT_TYPE"]) ? trim($_SERVER["CONTENT_TYPE"]) : '';
+$data = [];
 
-if ($method === 'GET') {
-    $services = $conn->query("SELECT * FROM services ORDER BY created_at DESC")->fetchAll();
-    $inquiries = $conn->query("SELECT * FROM inquiries ORDER BY created_at DESC")->fetchAll();
-
-    echo json_encode([
-        "success" => true,
-        "services" => $services,
-        "inquiries" => $inquiries
-    ]);
-} elseif ($method === 'POST') {
-    $data = json_decode(file_get_contents("php://input"), true);
-    $action = $_GET['action'] ?? '';
-
-    if ($action === 'add_service') {
-        $title = filter_var(trim($data['title'] ?? ''), FILTER_SANITIZE_FULL_SPECIAL_CHARS);
-        $description = filter_var(trim($data['description'] ?? ''), FILTER_SANITIZE_FULL_SPECIAL_CHARS);
-        $category = filter_var(trim($data['category'] ?? ''), FILTER_SANITIZE_FULL_SPECIAL_CHARS);
-
-        if (!$title || !$description) {
-            echo json_encode(["success" => false, "message" => "All fields are required."]);
-            exit();
-        }
-
-        $stmt = $conn->prepare("INSERT INTO services (title, description, category) VALUES (?, ?, ?)");
-        if ($stmt->execute([$title, $description, $category])) {
-            echo json_encode(["success" => true, "message" => "Service added successfully."]);
-        } else {
-            echo json_encode(["success" => false, "message" => "Failed to add service."]);
-        }
-    } elseif ($action === 'delete_inquiry') {
-        $id = filter_var($data['id'] ?? 0, FILTER_VALIDATE_INT);
-        if ($id) {
-            $stmt = $conn->prepare("DELETE FROM inquiries WHERE id = ?");
-            $stmt->execute([$id]);
-            echo json_encode(["success" => true, "message" => "Inquiry deleted successfully."]);
-        }
+if ($method === 'POST' || $method === 'PUT' || $method === 'DELETE') {
+    if (strpos($contentType, 'application/json') !== false) {
+        $data = json_decode(file_get_contents("php://input"), true) ?? [];
+    } else {
+        $data = $_POST;
     }
+}
+
+try {
+    switch ($method) {
+        case 'GET':
+            $stmt = $conn->query("SELECT * FROM services ORDER BY id DESC");
+            $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            
+            echo json_encode([
+                "success" => true,
+                "data" => $rows
+            ]);
+            break;
+
+        case 'POST':
+            $category = sanitize_input($data['category'] ?? '');
+            $title = sanitize_input($data['title'] ?? ($data['name'] ?? ''));
+            $description = sanitize_input($data['description'] ?? ($data['message'] ?? ''));
+
+            if (empty($title) || empty($description)) {
+                echo json_encode(["success" => false, "message" => "Title and description are required."]);
+                exit();
+            }
+
+            // تم إزالة عمود subject لعدم وجوده في الجدول
+            $stmt = $conn->prepare("INSERT INTO services (category, title, description) VALUES (?, ?, ?)");
+            if ($stmt->execute([$category, $title, $description])) {
+                echo json_encode(["success" => true, "message" => "Content block added successfully."]);
+            } else {
+                echo json_encode(["success" => false, "message" => "Failed to add content block."]);
+            }
+            break;
+
+        case 'PUT':
+            $id = filter_var($data['id'] ?? 0, FILTER_VALIDATE_INT);
+            $category = sanitize_input($data['category'] ?? '');
+            $title = sanitize_input($data['title'] ?? ($data['name'] ?? ''));
+            $description = sanitize_input($data['description'] ?? ($data['message'] ?? ''));
+
+            if (!$id) {
+                echo json_encode(["success" => false, "message" => "Invalid ID provided."]);
+                exit();
+            }
+
+            // تم إزالة عمود subject هنا أيضاً
+            $stmt = $conn->prepare("UPDATE services SET category = ?, title = ?, description = ? WHERE id = ?");
+            if ($stmt->execute([$category, $title, $description, $id])) {
+                echo json_encode(["success" => true, "message" => "Content block updated successfully."]);
+            } else {
+                echo json_encode(["success" => false, "message" => "Failed to update content block."]);
+            }
+            break;
+
+        case 'DELETE':
+            $id = filter_var($data['id'] ?? 0, FILTER_VALIDATE_INT);
+            if (!$id) {
+                echo json_encode(["success" => false, "message" => "Invalid ID provided."]);
+                exit();
+            }
+
+            $stmt = $conn->prepare("DELETE FROM services WHERE id = ?");
+            if ($stmt->execute([$id])) {
+                echo json_encode(["success" => true, "message" => "Block deleted successfully."]);
+            } else {
+                echo json_encode(["success" => false, "message" => "Failed to delete block."]);
+            }
+            break;
+
+        default:
+            http_response_code(405);
+            echo json_encode(["success" => false, "message" => "Method not allowed."]);
+            break;
+    }
+} catch (PDOException $e) {
+    http_response_code(500);
+    echo json_encode(["success" => false, "message" => "Database error: " . $e->getMessage()]);
 }
 ?>

@@ -1,5 +1,17 @@
 <?php
-// Secure Session Configuration
+// إعدادات الـ Headers الموحدة لمنع مشاكل CORS
+header("Access-Control-Allow-Origin: *");
+header("Access-Control-Allow-Credentials: true");
+header("Content-Type: application/json; charset=UTF-8");
+header("Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS");
+header("Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With");
+
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    http_response_code(200);
+    exit();
+}
+
+// إعدادات الـ Session الآمنة
 if (session_status() === PHP_SESSION_NONE) {
     ini_set('session.cookie_httponly', 1);
     ini_set('session.use_only_cookies', 1);
@@ -17,14 +29,13 @@ try {
     $conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
     $conn->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
 } catch (PDOException $e) {
-    error_log($e->getMessage()); // Log error internally
-    header('Content-Type: application/json');
+    error_log($e->getMessage());
     http_response_code(500);
     echo json_encode(["success" => false, "message" => "Database connection error."]);
     exit();
 }
 
-// Role Authorization Helper
+// دالة التحقق من الصلاحيات
 function checkAuth($requiredRole = null) {
     if (!isset($_SESSION['user_id'])) {
         http_response_code(401);
@@ -37,5 +48,10 @@ function checkAuth($requiredRole = null) {
         echo json_encode(["success" => false, "message" => "Forbidden: Access denied."]);
         exit();
     }
+}
+
+// دالة تنظيف المدخلات العامة
+function sanitize_input($data) {
+    return htmlspecialchars(strip_tags(trim($data)));
 }
 ?>

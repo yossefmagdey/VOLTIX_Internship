@@ -345,7 +345,7 @@
                     name: document.getElementById('reg-name').value.trim(),
                     email: document.getElementById('reg-email').value.trim(),
                     password: document.getElementById('reg-password').value,
-                    role: 'user' // تم تعديلها إلى user لتقبلها القاعدة
+                    role: 'user' // تم التعديل هنا لتكون الصلاحية مستخدم عادي وليس أدمن
                 };
             }
 
@@ -391,7 +391,7 @@
                             if (userRole === 'admin') {
                                 window.location.href = 'admin.html';
                             } else {
-                                window.location.href = 'index.html';
+                                window.location.href = 'dashboard.html';
                             }
                         });
                     }
