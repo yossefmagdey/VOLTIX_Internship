@@ -54,4 +54,11 @@ function checkAuth($requiredRole = null) {
 function sanitize_input($data) {
     return htmlspecialchars(strip_tags(trim($data)));
 }
+
+// تنظيف النصوص قبل التخزين: نشيل الـ HTML tags فقط.
+// مش بنعمل htmlspecialchars هنا عشان البيانات تتخزن نظيفة وبدون تشفير مزدوج،
+// والـ escape بيحصل وقت العرض في الـ Frontend.
+function clean_text($data) {
+    return trim(strip_tags((string)$data));
+}
 ?>

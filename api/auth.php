@@ -9,7 +9,9 @@ if ($action === 'register') {
     $name = sanitize_input($data['name'] ?? ($data['full_name'] ?? ''));
     $email = filter_var(trim($data['email'] ?? ''), FILTER_VALIDATE_EMAIL);
     $password = $data['password'] ?? '';
-    $role = sanitize_input($data['role'] ?? 'user');
+    // الـ role بيتحدد من السيرفر فقط. أي قيمة جاية من المتصفح بنتجاهلها
+    // (وإلا أي حد يقدر يسجل نفسه admin).
+    $role = 'user';
 
     if (!$name || !$email || strlen($password) < 6) {
         echo json_encode(["success" => false, "message" => "Please complete all fields with valid data (password min 6 chars)."]);

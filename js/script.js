@@ -121,20 +121,67 @@ document.addEventListener('DOMContentLoaded', () => {
   if (yearEl) yearEl.textContent = new Date().getFullYear();
 
   /* ---------- 6. Dynamic content loader ---------- */
-  loadDynamicContent();
+  loadServices();
+
+  // لو المستخدم رجع للتاب بعد ما الأدمن عدّل، نحدّث الخدمات بدون Refresh
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) loadServices();
+  });
 });
 
-async function loadDynamicContent() {
+/* ---------- Services (Public site) ---------- */
+// بنجيب الخدمات من الـ Backend (api/services.php) ونبنيها كـ cards.
+// مفيش أي خدمة مكتوبة يدويًا في الـ HTML، فأي تعديل من لوحة التحكم بيظهر هنا.
+async function loadServices() {
+  const grid = document.getElementById('servicesGrid');
+  if (!grid) return;
+
   try {
-    const res = await fetch('api/manage_content.php', {
-      credentials: 'include'
-    });
-    const data = await res.json();
-    
-    if (data.success && data.data && data.data.length > 0) {
-      console.log('Dynamic Content Loaded:', data.data);
+    const res = await fetch('api/services.php', { cache: 'no-store' });
+    const result = await res.json();
+
+    if (!res.ok || !result.success) {
+      throw new Error(result.message || 'Request failed');
     }
+    renderServices(grid, result.data);
   } catch (err) {
-    console.error('Error loading dynamic content:', err);
+    console.error('Error loading services:', err);
+    showServicesMessage(grid, 'Services are temporarily unavailable. Please try again later.');
   }
+}
+
+function renderServices(grid, services) {
+  grid.innerHTML = '';
+
+  if (!services.length) {
+    showServicesMessage(grid, 'No services are available right now.');
+    return;
+  }
+
+  services.forEach((service) => {
+    // textContent (مش innerHTML) عشان أي نص من الداتابيز ما يتنفذش كـ HTML
+    const card = document.createElement('article');
+    card.className = 'service-card';
+
+    const tag = document.createElement('span');
+    tag.className = 'service-tag';
+    tag.textContent = service.category;
+
+    const title = document.createElement('h3');
+    title.textContent = service.title;
+
+    const desc = document.createElement('p');
+    desc.textContent = service.description;
+
+    card.append(tag, title, desc);
+    grid.appendChild(card);
+  });
+}
+
+function showServicesMessage(grid, text) {
+  grid.innerHTML = '';
+  const p = document.createElement('p');
+  p.className = 'services-message';
+  p.textContent = text;
+  grid.appendChild(p);
 }

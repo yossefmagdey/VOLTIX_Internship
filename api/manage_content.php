@@ -1,94 +1,94 @@
 <?php
+// Admin API: CRUD كامل على جدول services (Create / Read / Update / Delete)
 require_once 'db.php';
 
-// التأكد من الصلاحيات (أدمن فقط)
+// أي طلب لازم يكون مسجّل دخول وبصلاحية admin، وإلا بيرجع 401 أو 403 ويقف هنا
 checkAuth('admin');
 
+const MAX_CATEGORY = 100;
+const MAX_TITLE = 150;
+const MAX_DESCRIPTION = 2000;
+
 $method = $_SERVER['REQUEST_METHOD'];
-$contentType = isset($_SERVER["CONTENT_TYPE"]) ? trim($_SERVER["CONTENT_TYPE"]) : '';
 $data = [];
 
-if ($method === 'POST' || $method === 'PUT' || $method === 'DELETE') {
-    if (strpos($contentType, 'application/json') !== false) {
-        $data = json_decode(file_get_contents("php://input"), true) ?? [];
-    } else {
-        $data = $_POST;
+if (in_array($method, ['POST', 'PUT', 'DELETE'], true)) {
+    $data = json_decode(file_get_contents("php://input"), true) ?? [];
+}
+
+// بنقرأ الحقول ونتحقق منها في مكان واحد (مستخدمة في POST و PUT)
+function readServiceFields(array $data): array {
+    $category = clean_text($data['category'] ?? '') ?: 'General';
+    $title = clean_text($data['title'] ?? '');
+    $description = clean_text($data['description'] ?? '');
+
+    if ($title === '' || $description === '') {
+        fail(400, "Title and description are required.");
     }
+    if (mb_strlen($category) > MAX_CATEGORY || mb_strlen($title) > MAX_TITLE || mb_strlen($description) > MAX_DESCRIPTION) {
+        fail(400, "One of the fields is too long.");
+    }
+    return [$category, $title, $description];
+}
+
+function fail(int $code, string $message): void {
+    http_response_code($code);
+    echo json_encode(["success" => false, "message" => $message]);
+    exit();
 }
 
 try {
     switch ($method) {
         case 'GET':
-            $stmt = $conn->query("SELECT * FROM services ORDER BY id DESC");
-            $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
-            
-            echo json_encode([
-                "success" => true,
-                "data" => $rows
-            ]);
+            $stmt = $conn->query("SELECT id, category, title, description FROM services ORDER BY id DESC");
+            echo json_encode(["success" => true, "data" => $stmt->fetchAll()]);
             break;
 
         case 'POST':
-            $category = sanitize_input($data['category'] ?? '');
-            $title = sanitize_input($data['title'] ?? ($data['name'] ?? ''));
-            $description = sanitize_input($data['description'] ?? ($data['message'] ?? ''));
-
-            if (empty($title) || empty($description)) {
-                echo json_encode(["success" => false, "message" => "Title and description are required."]);
-                exit();
-            }
-
-            // تم إزالة عمود subject لعدم وجوده في الجدول
+            [$category, $title, $description] = readServiceFields($data);
             $stmt = $conn->prepare("INSERT INTO services (category, title, description) VALUES (?, ?, ?)");
-            if ($stmt->execute([$category, $title, $description])) {
-                echo json_encode(["success" => true, "message" => "Content block added successfully."]);
-            } else {
-                echo json_encode(["success" => false, "message" => "Failed to add content block."]);
-            }
+            $stmt->execute([$category, $title, $description]);
+
+            http_response_code(201);
+            echo json_encode([
+                "success" => true,
+                "message" => "Service added successfully.",
+                "id" => (int)$conn->lastInsertId()
+            ]);
             break;
 
         case 'PUT':
             $id = filter_var($data['id'] ?? 0, FILTER_VALIDATE_INT);
-            $category = sanitize_input($data['category'] ?? '');
-            $title = sanitize_input($data['title'] ?? ($data['name'] ?? ''));
-            $description = sanitize_input($data['description'] ?? ($data['message'] ?? ''));
+            if (!$id) fail(400, "Invalid ID provided.");
+            [$category, $title, $description] = readServiceFields($data);
 
-            if (!$id) {
-                echo json_encode(["success" => false, "message" => "Invalid ID provided."]);
-                exit();
-            }
+            // بنتأكد إن الخدمة موجودة الأول (rowCount بيرجع 0 لو ما اتغيرش أي حاجة، فمش مناسب للتحقق)
+            $check = $conn->prepare("SELECT id FROM services WHERE id = ?");
+            $check->execute([$id]);
+            if (!$check->fetch()) fail(404, "Service not found.");
 
-            // تم إزالة عمود subject هنا أيضاً
             $stmt = $conn->prepare("UPDATE services SET category = ?, title = ?, description = ? WHERE id = ?");
-            if ($stmt->execute([$category, $title, $description, $id])) {
-                echo json_encode(["success" => true, "message" => "Content block updated successfully."]);
-            } else {
-                echo json_encode(["success" => false, "message" => "Failed to update content block."]);
-            }
+            $stmt->execute([$category, $title, $description, $id]);
+            echo json_encode(["success" => true, "message" => "Service updated successfully."]);
             break;
 
         case 'DELETE':
             $id = filter_var($data['id'] ?? 0, FILTER_VALIDATE_INT);
-            if (!$id) {
-                echo json_encode(["success" => false, "message" => "Invalid ID provided."]);
-                exit();
-            }
+            if (!$id) fail(400, "Invalid ID provided.");
 
             $stmt = $conn->prepare("DELETE FROM services WHERE id = ?");
-            if ($stmt->execute([$id])) {
-                echo json_encode(["success" => true, "message" => "Block deleted successfully."]);
-            } else {
-                echo json_encode(["success" => false, "message" => "Failed to delete block."]);
-            }
+            $stmt->execute([$id]);
+            if ($stmt->rowCount() === 0) fail(404, "Service not found.");
+
+            echo json_encode(["success" => true, "message" => "Service deleted successfully."]);
             break;
 
         default:
-            http_response_code(405);
-            echo json_encode(["success" => false, "message" => "Method not allowed."]);
-            break;
+            fail(405, "Method not allowed.");
     }
 } catch (PDOException $e) {
-    http_response_code(500);
-    echo json_encode(["success" => false, "message" => "Database error: " . $e->getMessage()]);
+    // التفاصيل في الـ log بس، مش بنعرضها للمستخدم
+    error_log($e->getMessage());
+    fail(500, "Database error. Please try again.");
 }
 ?>

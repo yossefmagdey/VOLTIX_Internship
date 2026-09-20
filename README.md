@@ -29,3 +29,13 @@ No build tools or server required.
 - Product features, process flow, and client testimonial
 - Dynamic pricing switcher with annual discounts
 - Fully responsive across mobile, tablet, and widescreen layouts
+## Task 6 — Company Service Management
+
+- `database/services.sql` : creates the `services` table (run once in phpMyAdmin).
+- `api/manage_content.php` : admin-only CRUD (GET / POST / PUT / DELETE) on services.
+- `api/services.php` : public read-only endpoint used by the landing page.
+- `admin.html` : the internal dashboard to add / edit / delete services.
+- `index.html` + `js/script.js` : the "Our Services" section is built from the API, nothing is hard-coded.
+
+Run with XAMPP: put the folder in `htdocs`, open `http://localhost/fathom-landing/`.
+Make an admin account by changing `role` to `admin` for your user in the `users` table.

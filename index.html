@@ -31,6 +31,57 @@
 
     <style>
       /* FATHOM BRANDING & CUSTOM EXTENSIONS */
+      /* SERVICES (loaded from the backend) */
+      .services-section {
+        background: #ffffff;
+        padding: 80px 0;
+        border-top: 1px solid rgba(16, 38, 58, 0.08);
+      }
+      .services-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+        gap: 24px;
+        margin-top: 40px;
+      }
+      .service-card {
+        background: #f6f3ec;
+        border: 1px solid rgba(16, 38, 58, 0.1);
+        border-radius: 12px;
+        padding: 28px;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+      }
+      .service-card:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 10px 24px rgba(16, 38, 58, 0.08);
+      }
+      .service-tag {
+        display: inline-block;
+        font-size: 12px;
+        font-weight: 600;
+        letter-spacing: 0.4px;
+        text-transform: uppercase;
+        color: #b98430;
+        margin-bottom: 10px;
+      }
+      .service-card h3 {
+        color: #10263a;
+        font-size: 20px;
+        margin: 0 0 10px;
+        font-family: "Fraunces", serif;
+      }
+      .service-card p {
+        color: #5b6b72;
+        font-size: 15px;
+        line-height: 1.6;
+        margin: 0;
+      }
+      .services-message {
+        grid-column: 1 / -1;
+        text-align: center;
+        color: #5b6b72;
+        padding: 24px 0;
+      }
+
       .contact-section-wrapper {
         background: #ffffff;
         border-top: 1px solid rgba(16, 38, 58, 0.1);
@@ -147,6 +198,7 @@
         </a>
 
         <nav class="main-nav" id="mainNav">
+          <a href="#services">Services</a>
           <a href="#features">Product</a>
           <a href="#how">How it works</a>
           <a href="#pricing">Pricing</a>
@@ -314,6 +366,17 @@
               wished we had — a single, honest view of every shipment, built for
               the team that actually has to answer for it.
             </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= SERVICES ================= -->
+      <section class="services-section" id="services">
+        <div class="wrap">
+          <h2 class="section-title">Our Services</h2>
+          <!-- الكروت بتتعمل من الـ Backend عن طريق js/script.js (loadServices) -->
+          <div class="services-grid" id="servicesGrid" aria-live="polite">
+            <p class="services-message">Loading services...</p>
           </div>
         </div>
       </section>
