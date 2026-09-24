@@ -39,3 +39,13 @@ No build tools or server required.
 
 Run with XAMPP: put the folder in `htdocs`, open `http://localhost/fathom-landing/`.
 Make an admin account by changing `role` to `admin` for your user in the `users` table.
+
+## Task 7 — Customer Request Management
+
+- `database/requests.sql` : adds `status` (`new` / `in_progress` / `resolved`) and `updated_at` to the `inquiries` table (run once).
+- `api/contact.php` : customer-side submission from the public "Contact" form — already existed, fixed to store clean text and validate field length.
+- `api/inquiries.php` : admin-only. `GET` lists all requests, `PUT` updates a request's status (validated against a whitelist), `DELETE` removes a request.
+- `requests.html` : internal dashboard — lists requests with filters (All / New / In Progress / Resolved), a "View" button for full details, and a status dropdown + Update button per row.
+- Linked from `admin.html`'s top bar ("Customer Requests"), and links back to Services from its own top bar.
+
+Flow: customer submits the contact form on `index.html` → `api/contact.php` saves it with status `new` → staff open `requests.html`, review it, and move it to `in_progress` / `resolved`.
