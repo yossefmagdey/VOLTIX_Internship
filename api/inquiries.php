@@ -16,14 +16,58 @@ function fail(int $code, string $message): void {
     exit();
 }
 
+// بيهرّب % و _ عشان لو العميل كتبهم في البحث ميتعاملوش كـ wildcards في LIKE
+function escape_like(string $value): string {
+    return str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $value);
+}
+
+// تاريخ بصيغة YYYY-MM-DD بس، أي حاجة تانية بترجع null وبتتجاهل
+function valid_date(?string $value): ?string {
+    if (!$value) return null;
+    $d = DateTime::createFromFormat('Y-m-d', $value);
+    return ($d && $d->format('Y-m-d') === $value) ? $value : null;
+}
+
 try {
     switch ($method) {
         case 'GET':
-            // كل الطلبات، الأحدث أولًا. status بترجع مع كل صف عشان الواجهة تلوّن/تفلتر بيها.
-            $stmt = $conn->query(
-                "SELECT id, name, email, subject, message, status, created_at, updated_at
-                 FROM inquiries ORDER BY created_at DESC"
-            );
+            // Search & Filtering: q (نص حر) + status + مدى تاريخ، وكلهم اختياريين وممكن يتجمعوا مع بعض.
+            // البحث والفلترة بيحصلوا في الـ SQL نفسه، مش على بيانات محمّلة مسبقًا في الـ Frontend.
+            $q = trim((string)($_GET['q'] ?? ''));
+            $status = $_GET['status'] ?? '';
+            $from = valid_date($_GET['from'] ?? null);
+            $to = valid_date($_GET['to'] ?? null);
+
+            if (mb_strlen($q) > 200) fail(400, "Search term is too long.");
+
+            $where = [];
+            $params = [];
+
+            if ($q !== '') {
+                $like = '%' . escape_like($q) . '%';
+                $where[] = "(name LIKE ? ESCAPE '\\\\' OR email LIKE ? ESCAPE '\\\\'
+                             OR subject LIKE ? ESCAPE '\\\\' OR message LIKE ? ESCAPE '\\\\')";
+                array_push($params, $like, $like, $like, $like);
+            }
+            if ($status !== '' && in_array($status, ALLOWED_STATUSES, true)) {
+                $where[] = "status = ?";
+                $params[] = $status;
+            }
+            if ($from) {
+                $where[] = "created_at >= ?";
+                $params[] = $from . " 00:00:00";
+            }
+            if ($to) {
+                $where[] = "created_at <= ?";
+                $params[] = $to . " 23:59:59";
+            }
+
+            $sql = "SELECT id, name, email, subject, message, status, created_at, updated_at FROM inquiries";
+            if ($where) $sql .= " WHERE " . implode(" AND ", $where);
+            $sql .= " ORDER BY created_at DESC";
+
+            $stmt = $conn->prepare($sql);
+            $stmt->execute($params);
             echo json_encode(["success" => true, "data" => $stmt->fetchAll()]);
             break;
 

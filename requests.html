@@ -102,27 +102,69 @@
         font-size: 15px;
       }
 
-      /* Filter bar */
+      /* Search & Filter bar */
       .filter-bar {
         display: flex;
-        gap: 8px;
+        gap: 12px;
         margin-bottom: 20px;
         flex-wrap: wrap;
+        align-items: flex-end;
       }
-      .filter-btn {
+      .filter-field {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+      }
+      .filter-field label {
+        font-size: 11px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.4px;
+        color: var(--text-muted);
+      }
+      .search-input-wrap {
+        position: relative;
+      }
+      .search-input-wrap i {
+        position: absolute;
+        left: 12px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: var(--text-muted);
+        font-size: 13px;
+      }
+      #searchInput {
+        width: 260px;
+        padding: 9px 12px 9px 32px;
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        font-size: 13px;
+      }
+      .filter-bar select,
+      .filter-bar input[type="date"] {
+        padding: 9px 12px;
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        font-size: 13px;
         background: #fff;
+      }
+      .clear-filters-btn {
+        background: transparent;
         border: 1px solid var(--border-color);
         color: var(--text-muted);
-        padding: 8px 16px;
-        border-radius: 20px;
+        padding: 9px 14px;
+        border-radius: 8px;
         font-size: 13px;
         font-weight: 600;
         cursor: pointer;
       }
-      .filter-btn.active {
-        background: var(--fathom-navy);
-        color: #fff;
-        border-color: var(--fathom-navy);
+      .clear-filters-btn:hover {
+        background: #f1f5f9;
+      }
+      .results-count {
+        color: var(--text-muted);
+        font-size: 13px;
+        margin-bottom: 12px;
       }
 
       /* Card Panel */
@@ -367,16 +409,50 @@
       </div>
 
       <div class="filter-bar" id="filterBar">
-        <button class="filter-btn active" data-filter="all">All</button>
-        <button class="filter-btn" data-filter="new">New</button>
-        <button class="filter-btn" data-filter="in_progress">In Progress</button>
-        <button class="filter-btn" data-filter="resolved">Resolved</button>
+        <div class="filter-field">
+          <label for="searchInput">Search</label>
+          <div class="search-input-wrap">
+            <i class="fa-solid fa-magnifying-glass"></i>
+            <input
+              type="text"
+              id="searchInput"
+              placeholder="Name, email, subject, or message..."
+              maxlength="200"
+            />
+          </div>
+        </div>
+
+        <div class="filter-field">
+          <label for="statusFilter">Status</label>
+          <select id="statusFilter">
+            <option value="">All</option>
+            <option value="new">New</option>
+            <option value="in_progress">In Progress</option>
+            <option value="resolved">Resolved</option>
+          </select>
+        </div>
+
+        <div class="filter-field">
+          <label for="fromFilter">From</label>
+          <input type="date" id="fromFilter" />
+        </div>
+
+        <div class="filter-field">
+          <label for="toFilter">To</label>
+          <input type="date" id="toFilter" />
+        </div>
+
+        <button class="clear-filters-btn" id="clearFiltersBtn">
+          <i class="fa-solid fa-xmark"></i> Clear
+        </button>
       </div>
 
       <div class="panel">
         <div class="panel-title">
           <i class="fa-solid fa-inbox"></i> Requests
         </div>
+
+        <p class="results-count" id="resultsCount"></p>
 
         <div class="table-wrapper">
           <table class="data-table">
@@ -425,14 +501,43 @@
 
     <script>
       const API_URL = "api/inquiries.php";
-      let requests = [];
-      let activeFilter = "all";
+      let requests = []; // نتيجة آخر بحث/فلترة راجعة من الـ Backend، مش قايمة ثابتة
 
-      document.addEventListener("DOMContentLoaded", fetchRequests);
+      document.addEventListener("DOMContentLoaded", () => {
+        fetchRequests();
+
+        // البحث بيتبعت بعد ما المستخدم يوقف عن الكتابة بـ 350ms (debounce)
+        // عشان ميبعتش request مع كل حرف، ده بيقلل الحمل على السيرفر
+        document.getElementById("searchInput").addEventListener("input", debounce(fetchRequests, 350));
+        document.getElementById("statusFilter").addEventListener("change", fetchRequests);
+        document.getElementById("fromFilter").addEventListener("change", fetchRequests);
+        document.getElementById("toFilter").addEventListener("change", fetchRequests);
+
+        document.getElementById("clearFiltersBtn").addEventListener("click", () => {
+          document.getElementById("searchInput").value = "";
+          document.getElementById("statusFilter").value = "";
+          document.getElementById("fromFilter").value = "";
+          document.getElementById("toFilter").value = "";
+          fetchRequests();
+        });
+      });
+
+      function debounce(fn, delay) {
+        let timer;
+        return (...args) => {
+          clearTimeout(timer);
+          timer = setTimeout(() => fn(...args), delay);
+        };
+      }
 
       // مساعد موحد للطلبات: بيبعت الـ cookies وبيحوّل لصفحة الدخول لو الجلسة انتهت
-      async function api(method, body) {
-        const response = await fetch(API_URL, {
+      async function api(method, body, params) {
+        let url = API_URL;
+        if (params) {
+          const qs = new URLSearchParams(params).toString();
+          if (qs) url += `?${qs}`;
+        }
+        const response = await fetch(url, {
           method,
           credentials: "include",
           headers: { "Content-Type": "application/json" },
@@ -445,10 +550,26 @@
         return response.json();
       }
 
+      // بيقرأ حقول البحث والفلاتر الحالية ويبنى منها الـ query params
+      function currentFilters() {
+        const params = {};
+        const q = document.getElementById("searchInput").value.trim();
+        const status = document.getElementById("statusFilter").value;
+        const from = document.getElementById("fromFilter").value;
+        const to = document.getElementById("toFilter").value;
+
+        if (q) params.q = q;
+        if (status) params.status = status;
+        if (from) params.from = from;
+        if (to) params.to = to;
+        return params;
+      }
+
+      // بيبعت البحث والفلاتر للـ Backend فعليًا (SQL WHERE)، مش فلترة على بيانات محمّلة مسبقًا
       async function fetchRequests() {
         const tbody = document.getElementById("requestsTableBody");
         try {
-          const result = await api("GET");
+          const result = await api("GET", null, currentFilters());
           requests = result.success ? result.data : [];
           renderTable();
         } catch (err) {
@@ -461,16 +582,16 @@
         const tbody = document.getElementById("requestsTableBody");
         tbody.innerHTML = "";
 
-        const visible =
-          activeFilter === "all" ? requests : requests.filter((r) => r.status === activeFilter);
+        document.getElementById("resultsCount").textContent =
+          requests.length === 1 ? "1 request found" : `${requests.length} requests found`;
 
-        if (visible.length === 0) {
+        if (requests.length === 0) {
           tbody.innerHTML =
-            '<tr><td colspan="6" style="text-align:center;color:var(--text-muted);">No requests in this view.</td></tr>';
+            '<tr><td colspan="6" style="text-align:center;color:var(--text-muted);">No requests match your search/filters.</td></tr>';
           return;
         }
 
-        visible.forEach((item) => {
+        requests.forEach((item) => {
           const tr = document.createElement("tr");
 
           const dateCell = document.createElement("td");
@@ -541,11 +662,10 @@
           try {
             const result = await api("PUT", { id: item.id, status: newStatus });
             if (result.success) {
-              item.status = newStatus;
-              badge.className = `status-badge ${newStatus}`;
-              badge.textContent = statusLabel(newStatus);
               showToast(`✅ Status updated to "${statusLabel(newStatus)}"`);
-              if (activeFilter !== "all" && activeFilter !== newStatus) renderTable();
+              // بنعيد الجلب بنفس الفلاتر الحالية، فلو الفلتر بحالة معيّنة والطلب بقى بحالة تانية
+              // هيختفي من النتيجة تلقائيًا لأن الفلترة بتحصل في الـ Backend
+              fetchRequests();
             } else {
               showToast(`❌ ${result.message}`);
               select.value = item.status;
@@ -561,16 +681,6 @@
         wrap.append(select, saveBtn);
         return wrap;
       }
-
-      // فلاتر الحالة
-      document.getElementById("filterBar").addEventListener("click", (e) => {
-        const btn = e.target.closest(".filter-btn");
-        if (!btn) return;
-        document.querySelectorAll(".filter-btn").forEach((b) => b.classList.remove("active"));
-        btn.classList.add("active");
-        activeFilter = btn.dataset.filter;
-        renderTable();
-      });
 
       function openModal(item) {
         document.getElementById("modalSubject").textContent = item.subject;

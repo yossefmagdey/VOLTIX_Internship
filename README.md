@@ -49,3 +49,13 @@ Make an admin account by changing `role` to `admin` for your user in the `users`
 - Linked from `admin.html`'s top bar ("Customer Requests"), and links back to Services from its own top bar.
 
 Flow: customer submits the contact form on `index.html` → `api/contact.php` saves it with status `new` → staff open `requests.html`, review it, and move it to `in_progress` / `resolved`.
+
+## Task 8 — Search & Filtering for Company Data
+
+Implemented inside the **Customer Requests** section (`requests.html`).
+
+- `api/inquiries.php` (`GET`) now accepts optional query params: `q` (free-text search across name/email/subject/message), `status`, `from`, `to` (date range on `created_at`). All are combined into one parameterized `WHERE` clause built at request time — nothing is hardcoded, and no filtering happens on data already loaded in the browser.
+- `%`/`_` in the search term are escaped before being used in `LIKE`, so a user's own wildcard characters don't affect matching.
+- `requests.html`: replaced the old client-side status buttons with a search box (debounced 350ms), a status dropdown, and a From/To date range — all four can be combined, and every change re-queries the backend. A "results found" count and a "Clear" button were added.
+
+Example: typing "shipping" while Status = "New" and From = last 7 days returns only new requests from that week whose name/email/subject/message contains "shipping" — computed entirely in SQL.
