@@ -168,6 +168,90 @@
         background: #1d4ed8;
       }
 
+      .btn-submit:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+      }
+
+      /* Documents */
+      .upload-row {
+        display: flex;
+        gap: 12px;
+        align-items: center;
+        flex-wrap: wrap;
+        margin-bottom: 20px;
+      }
+
+      .upload-row input[type="file"] {
+        flex: 1;
+        min-width: 220px;
+        font-size: 13px;
+      }
+
+      .upload-hint {
+        color: var(--text-muted);
+        font-size: 12px;
+        margin: -12px 0 20px;
+      }
+
+      .data-table {
+        width: 100%;
+        border-collapse: separate;
+        border-spacing: 0;
+        text-align: left;
+      }
+
+      .data-table th {
+        background: #f8fafc;
+        color: var(--text-muted);
+        padding: 10px 14px;
+        font-size: 12px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        border-bottom: 1px solid var(--border-color);
+      }
+
+      .data-table td {
+        padding: 12px 14px;
+        border-bottom: 1px solid var(--border-color);
+        font-size: 14px;
+      }
+
+      .data-table tr:last-child td {
+        border-bottom: none;
+      }
+
+      .file-name {
+        font-weight: 600;
+        color: var(--fathom-navy);
+      }
+
+      .file-meta {
+        color: var(--text-muted);
+        font-size: 12px;
+      }
+
+      .doc-action-btn {
+        border: 1px solid var(--border-color);
+        background: #fff;
+        padding: 6px 10px;
+        border-radius: 6px;
+        font-size: 12px;
+        font-weight: 600;
+        cursor: pointer;
+        margin-right: 6px;
+      }
+
+      .doc-action-btn.delete {
+        color: #dc2626;
+        border-color: #fecaca;
+      }
+
+      .doc-action-btn:hover {
+        background: #f1f5f9;
+      }
+
       /* Toast */
       .toast {
         position: fixed;
@@ -236,6 +320,40 @@
           </button>
         </form>
       </div>
+
+      <!-- My Documents -->
+      <div class="panel">
+        <div class="panel-title">
+          <i class="fa-solid fa-folder-open"></i> My Documents
+        </div>
+
+        <form id="uploadForm">
+          <div class="upload-row">
+            <input type="file" id="fileInput" required />
+            <button type="submit" class="btn-submit" id="uploadBtn">
+              <i class="fa-solid fa-upload"></i> Upload
+            </button>
+          </div>
+        </form>
+        <p class="upload-hint">
+          Allowed types: PDF, Word, Excel, PowerPoint, images, TXT, CSV — max 5 MB.
+        </p>
+
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>File</th>
+              <th>Uploaded</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="documentsTableBody">
+            <tr>
+              <td colspan="3" style="text-align: center; color: var(--text-muted)">Loading documents...</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
     </div>
 
     <div class="toast" id="toast"></div>
@@ -281,6 +399,148 @@
           showToast("❌ Error connecting to server.");
         }
       });
+
+      /* ---------- Documents ---------- */
+      const DOCS_API = "api/documents.php";
+
+      document.addEventListener("DOMContentLoaded", fetchDocuments);
+
+      async function fetchDocuments() {
+        const tbody = document.getElementById("documentsTableBody");
+        try {
+          const response = await fetch(`${DOCS_API}?action=list`, { credentials: "include" });
+          const result = await response.json();
+          renderDocuments(result.success ? result.data : []);
+        } catch (err) {
+          tbody.innerHTML =
+            '<tr><td colspan="3" style="text-align:center;color:#dc2626;">Failed to load documents.</td></tr>';
+        }
+      }
+
+      function renderDocuments(docs) {
+        const tbody = document.getElementById("documentsTableBody");
+        tbody.innerHTML = "";
+
+        if (docs.length === 0) {
+          tbody.innerHTML =
+            '<tr><td colspan="3" style="text-align:center;color:var(--text-muted);">No documents uploaded yet.</td></tr>';
+          return;
+        }
+
+        docs.forEach((doc) => {
+          const tr = document.createElement("tr");
+
+          const nameCell = document.createElement("td");
+          const nameDiv = document.createElement("div");
+          nameDiv.className = "file-name";
+          nameDiv.textContent = doc.original_name;
+          const metaDiv = document.createElement("div");
+          metaDiv.className = "file-meta";
+          metaDiv.textContent = doc.size_label;
+          nameCell.append(nameDiv, metaDiv);
+
+          const dateCell = document.createElement("td");
+          dateCell.className = "file-meta";
+          dateCell.textContent = formatDate(doc.uploaded_at);
+
+          const actionsCell = document.createElement("td");
+
+          const downloadBtn = document.createElement("a");
+          downloadBtn.className = "doc-action-btn";
+          downloadBtn.href = `${DOCS_API}?action=download&id=${doc.id}`;
+          downloadBtn.innerHTML = '<i class="fa-solid fa-download"></i> Download';
+
+          const deleteBtn = document.createElement("button");
+          deleteBtn.className = "doc-action-btn delete";
+          deleteBtn.innerHTML = '<i class="fa-solid fa-trash"></i> Delete';
+          deleteBtn.addEventListener("click", () => deleteDocument(doc.id));
+
+          actionsCell.append(downloadBtn, deleteBtn);
+
+          tr.append(nameCell, dateCell, actionsCell);
+          tbody.appendChild(tr);
+        });
+      }
+
+      document.getElementById("uploadForm").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const fileInput = document.getElementById("fileInput");
+        const uploadBtn = document.getElementById("uploadBtn");
+
+        if (!fileInput.files.length) {
+          showToast("❌ Please choose a file to upload.");
+          return;
+        }
+
+        // فحص مبدئي في المتصفح (تجربة مستخدم أسرع بس، الفحص الحقيقي في الباك إند)
+        const file = fileInput.files[0];
+        if (file.size > 5 * 1024 * 1024) {
+          showToast("❌ File is too large. Maximum size is 5 MB.");
+          return;
+        }
+
+        const formData = new FormData();
+        formData.append("file", file);
+
+        uploadBtn.disabled = true;
+        uploadBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Uploading...';
+
+        try {
+          const response = await fetch(`${DOCS_API}?action=upload`, {
+            method: "POST",
+            credentials: "include",
+            body: formData, // من غير Content-Type يدوي؛ المتصفح بيحطه صح لـ multipart
+          });
+          const result = await response.json();
+
+          if (result.success) {
+            showToast("✅ File uploaded successfully.");
+            fileInput.value = "";
+            fetchDocuments();
+          } else {
+            showToast(`❌ ${result.message}`);
+          }
+        } catch (err) {
+          showToast("❌ Error connecting to server.");
+        } finally {
+          uploadBtn.disabled = false;
+          uploadBtn.innerHTML = '<i class="fa-solid fa-upload"></i> Upload';
+        }
+      });
+
+      async function deleteDocument(id) {
+        if (!confirm("Delete this document? This cannot be undone.")) return;
+
+        try {
+          const response = await fetch(DOCS_API, {
+            method: "DELETE",
+            credentials: "include",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ id }),
+          });
+          const result = await response.json();
+          if (result.success) {
+            showToast("✅ Document deleted.");
+            fetchDocuments();
+          } else {
+            showToast(`❌ ${result.message}`);
+          }
+        } catch (err) {
+          showToast("❌ Error connecting to server.");
+        }
+      }
+
+      function formatDate(value) {
+        const d = new Date(value.replace(" ", "T"));
+        if (isNaN(d)) return value;
+        return d.toLocaleString(undefined, {
+          day: "2-digit",
+          month: "short",
+          year: "numeric",
+          hour: "2-digit",
+          minute: "2-digit",
+        });
+      }
 
       function logout() {
         fetch("api/auth.php?action=logout", { credentials: "include" }).then(() => {

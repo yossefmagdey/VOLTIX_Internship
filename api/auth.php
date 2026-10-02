@@ -1,21 +1,17 @@
 <?php
-// إدارة المصادقة وتسجيل الدخول والتحقق من الأدوار (RBAC)
 require_once 'db.php';
-
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
 
 $data = json_decode(file_get_contents("php://input"), true);
 $action = $_GET['action'] ?? '';
 
 if ($action === 'register') {
+    // دعم استقبال المفتاح سواء كان 'name' أو 'full_name' من الـ Frontend
     $name = sanitize_input($data['name'] ?? ($data['full_name'] ?? ''));
     $email = filter_var(trim($data['email'] ?? ''), FILTER_VALIDATE_EMAIL);
     $password = $data['password'] ?? '';
-    
-    // الدور الافتراضي للمستخدم الجديد هو regular_employee أو user حسب الحاجة في النظام
-    $role = 'regular_employee'; 
+    // الـ role بيتحدد من السيرفر فقط. أي قيمة جاية من المتصفح بنتجاهلها
+    // (وإلا أي حد يقدر يسجل نفسه admin).
+    $role = 'user';
 
     if (!$name || !$email || strlen($password) < 6) {
         echo json_encode(["success" => false, "message" => "Please complete all fields with valid data (password min 6 chars)."]);
@@ -31,6 +27,7 @@ if ($action === 'register') {
 
     $hashed_password = password_hash($password, PASSWORD_BCRYPT);
 
+    // الإدخال المباشر في العمود الصحيح full_name الموجود في قاعدة البيانات
     $stmt = $conn->prepare("INSERT INTO users (full_name, email, password, role) VALUES (?, ?, ?, ?)");
     if ($stmt->execute([$name, $email, $hashed_password, $role])) {
         $userId = $conn->lastInsertId();
@@ -66,7 +63,7 @@ if ($action === 'register') {
         $_SESSION['user_id'] = $user['id'];
         $_SESSION['user_name'] = $user['full_name'];
         $_SESSION['user_email'] = $user['email']; 
-        $_SESSION['user_role'] = $user['role']; // حفظ الصلاحية/الدور في الجلسة
+        $_SESSION['user_role'] = $user['role'];
 
         echo json_encode([
             "success" => true,
@@ -85,7 +82,7 @@ if ($action === 'register') {
                 "id" => $_SESSION['user_id'],
                 "name" => $_SESSION['user_name'] ?? '',
                 "email" => $_SESSION['user_email'] ?? '',
-                "role" => $_SESSION['user_role'] ?? 'regular_employee'
+                "role" => $_SESSION['user_role'] ?? 'user'
             ]
         ]);
     } else {

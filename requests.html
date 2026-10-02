@@ -7,20 +7,16 @@
 
     <!-- Auth Protection Check -->
     <script>
-      // جزء من الكود اللي يتحقق من دور المستخدم ويخصص الواجهة
-      fetch("api/auth_check.php") // أو الـ API الخاص ببيانات المستخدم الحالي
+      fetch("api/auth.php?action=check", { credentials: "include" })
         .then((res) => res.json())
         .then((data) => {
-          if (data.success && data.user) {
-            const userRole = data.user.role; // 'admin' أو 'regular_employee'
-
-            // لو المستخدم موظف عادي، بنخفي عنه أزرار الإدارة أو التعديل المتقدمة
-            if (userRole === "regular_employee") {
-              document.querySelectorAll(".admin-only").forEach((el) => {
-                el.style.display = "none";
-              });
-            }
+          if (!data.success || data.user.role !== "admin") {
+            alert("Access Denied: Admin privileges required to view this page.");
+            window.location.href = "auth.html";
           }
+        })
+        .catch(() => {
+          window.location.href = "auth.html";
         });
     </script>
 
@@ -394,9 +390,7 @@
         <strong>Fathom</strong> Customer Requests
       </span>
       <div class="admin-bar-actions">
-        <a href="admin.html">
-          <i class="fa-solid fa-layer-group"></i> Services
-        </a>
+        <a href="admin.html"> <i class="fa-solid fa-layer-group"></i> Services </a>
         <a href="index.html">
           <i class="fa-solid fa-arrow-left"></i> Return to Live Landing Page
         </a>
@@ -410,10 +404,7 @@
       <div class="cms-header">
         <div class="cms-title">
           <h1>Customer Requests</h1>
-          <p>
-            Review requests submitted from the public website and track them
-            through to resolution.
-          </p>
+          <p>Review requests submitted from the public website and track them through to resolution.</p>
         </div>
       </div>
 
@@ -477,10 +468,7 @@
             </thead>
             <tbody id="requestsTableBody">
               <tr>
-                <td
-                  colspan="6"
-                  style="text-align: center; color: var(--text-muted)"
-                >
+                <td colspan="6" style="text-align: center; color: var(--text-muted)">
                   Loading requests...
                 </td>
               </tr>
@@ -520,28 +508,18 @@
 
         // البحث بيتبعت بعد ما المستخدم يوقف عن الكتابة بـ 350ms (debounce)
         // عشان ميبعتش request مع كل حرف، ده بيقلل الحمل على السيرفر
-        document
-          .getElementById("searchInput")
-          .addEventListener("input", debounce(fetchRequests, 350));
-        document
-          .getElementById("statusFilter")
-          .addEventListener("change", fetchRequests);
-        document
-          .getElementById("fromFilter")
-          .addEventListener("change", fetchRequests);
-        document
-          .getElementById("toFilter")
-          .addEventListener("change", fetchRequests);
+        document.getElementById("searchInput").addEventListener("input", debounce(fetchRequests, 350));
+        document.getElementById("statusFilter").addEventListener("change", fetchRequests);
+        document.getElementById("fromFilter").addEventListener("change", fetchRequests);
+        document.getElementById("toFilter").addEventListener("change", fetchRequests);
 
-        document
-          .getElementById("clearFiltersBtn")
-          .addEventListener("click", () => {
-            document.getElementById("searchInput").value = "";
-            document.getElementById("statusFilter").value = "";
-            document.getElementById("fromFilter").value = "";
-            document.getElementById("toFilter").value = "";
-            fetchRequests();
-          });
+        document.getElementById("clearFiltersBtn").addEventListener("click", () => {
+          document.getElementById("searchInput").value = "";
+          document.getElementById("statusFilter").value = "";
+          document.getElementById("fromFilter").value = "";
+          document.getElementById("toFilter").value = "";
+          fetchRequests();
+        });
       });
 
       function debounce(fn, delay) {
@@ -605,9 +583,7 @@
         tbody.innerHTML = "";
 
         document.getElementById("resultsCount").textContent =
-          requests.length === 1
-            ? "1 request found"
-            : `${requests.length} requests found`;
+          requests.length === 1 ? "1 request found" : `${requests.length} requests found`;
 
         if (requests.length === 0) {
           tbody.innerHTML =
@@ -650,14 +626,7 @@
           viewBtn.addEventListener("click", () => openModal(item));
           detailsCell.appendChild(viewBtn);
 
-          tr.append(
-            dateCell,
-            customerCell,
-            subjectCell,
-            messageCell,
-            statusCell,
-            detailsCell,
-          );
+          tr.append(dateCell, customerCell, subjectCell, messageCell, statusCell, detailsCell);
           tbody.appendChild(tr);
         });
       }
@@ -717,8 +686,7 @@
         document.getElementById("modalSubject").textContent = item.subject;
         document.getElementById("modalMeta").textContent =
           `Submitted ${formatDate(item.created_at)} · Status: ${statusLabel(item.status)}`;
-        document.getElementById("modalCustomer").textContent =
-          `${item.name} (${item.email})`;
+        document.getElementById("modalCustomer").textContent = `${item.name} (${item.email})`;
         document.getElementById("modalMessage").textContent = item.message;
         document.getElementById("detailsModal").classList.add("open");
       }
@@ -731,11 +699,7 @@
       });
 
       function statusLabel(status) {
-        return (
-          { new: "New", in_progress: "In Progress", resolved: "Resolved" }[
-            status
-          ] || status
-        );
+        return { new: "New", in_progress: "In Progress", resolved: "Resolved" }[status] || status;
       }
 
       function formatDate(value) {
@@ -750,11 +714,9 @@
       }
 
       function logout() {
-        fetch("api/auth.php?action=logout", { credentials: "include" }).then(
-          () => {
-            window.location.href = "auth.html";
-          },
-        );
+        fetch("api/auth.php?action=logout", { credentials: "include" }).then(() => {
+          window.location.href = "auth.html";
+        });
       }
 
       function showToast(msg) {

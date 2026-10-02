@@ -1,28 +1,9 @@
 <?php
-// Company Service Management — إدارة طلبات العملاء مع دعم RBAC
+// Company Service Management — إدارة طلبات العملاء (Admin only)
 require_once 'db.php';
 
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
-
-// دالة التحقق من الصلاحيات (Role-Based Access Control)
-function checkAuthAndRole($allowedRoles = []) {
-    if (!isset($_SESSION['user_id'])) {
-        http_response_code(401);
-        echo json_encode(["success" => false, "message" => "Unauthorized. Please log in."]);
-        exit();
-    }
-
-    if (!empty($allowedRoles)) {
-        $userRole = $_SESSION['user_role'] ?? 'user';
-        if (!in_array($userRole, $allowedRoles, true)) {
-            http_response_code(403);
-            echo json_encode(["success" => false, "message" => "Forbidden. You do not have permission to perform this action."]);
-            exit();
-        }
-    }
-}
+// أي طلب هنا لازم يكون مسجّل دخول وبصلاحية admin، وإلا بيرجع 401/403 ويقف
+checkAuth('admin');
 
 // الحالات المسموح بيها بس، أي قيمة تانية بترفض
 const ALLOWED_STATUSES = ['new', 'in_progress', 'resolved'];
@@ -50,9 +31,8 @@ function valid_date(?string $value): ?string {
 try {
     switch ($method) {
         case 'GET':
-            // مسموح للأدمن والموظفين (regular_employee / admin) عرض الطلبات والبحث فيها
-            checkAuthAndRole(['admin', 'regular_employee']);
-
+            // Search & Filtering: q (نص حر) + status + مدى تاريخ، وكلهم اختياريين وممكن يتجمعوا مع بعض.
+            // البحث والفلترة بيحصلوا في الـ SQL نفسه، مش على بيانات محمّلة مسبقًا في الـ Frontend.
             $q = trim((string)($_GET['q'] ?? ''));
             $status = $_GET['status'] ?? '';
             $from = valid_date($_GET['from'] ?? null);
@@ -92,9 +72,7 @@ try {
             break;
 
         case 'PUT':
-            // تعديل الحالة مقتصر فقط على الـ Admin
-            checkAuthAndRole(['admin']);
-
+            // تحديث الحالة فقط. بيانات العميل الأصلية (name/email/message) مش بتتعدل من هنا.
             $data = json_decode(file_get_contents("php://input"), true) ?? [];
 
             $id = filter_var($data['id'] ?? 0, FILTER_VALIDATE_INT);
@@ -116,9 +94,6 @@ try {
             break;
 
         case 'DELETE':
-            // الحذف مقتصر فقط على الـ Admin
-            checkAuthAndRole(['admin']);
-
             $data = json_decode(file_get_contents("php://input"), true) ?? [];
             $id = filter_var($data['id'] ?? ($_GET['id'] ?? 0), FILTER_VALIDATE_INT);
             if (!$id) fail(400, "Invalid request ID.");

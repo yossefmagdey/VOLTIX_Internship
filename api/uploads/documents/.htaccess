@@ -1,0 +1,6 @@
+# حماية إضافية: حتى لو ملف خطير اتخزن هنا بطريقة ما، الأباتشي يرفض ينفذه
+# كسكريبت. الحماية الأساسية هي الـ Whitelist وفحص المحتوى في documents.php،
+# ده مجرد طبقة أمان إضافية (Defense in Depth).
+<FilesMatch "\.(php|php\d|phtml|phar|pl|py|sh|cgi)$">
+    Require all denied
+</FilesMatch>
